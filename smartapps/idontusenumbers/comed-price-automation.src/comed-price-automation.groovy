@@ -23,7 +23,8 @@ definition(
     iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
     iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png")
 
-def api = ""
+
+
 preferences {
 
     section("High price threshold:") {
@@ -66,24 +67,51 @@ def initialize() {
 
 
 def priceUpdated(data) {
-    log.debug "handlerMethod2, data: $data"
+    log.debug "priceUpdated, data: ${data}"
     
     
-    def params = [
-        uri: "https://hourlypricing.comed.com",
-        path: "/api",
-        query: [type:'currenthouraverage']
-	]
+def comedPrice = [
+    uri: "https://hourlypricing.comed.com",
+    path: "/api",
+    query: [type:'currenthouraverage']
+]
 
     try {
-        httpGet(params) { resp ->
-            resp.headers.each {
-            log.debug "${it.name} : ${it.value}"
-        }
-        log.debug "response contentType: ${resp.contentType}"
-        log.debug "response data: ${resp.data}"
-        
-        
+        httpGet(comedPrice) { resp ->
+        	if (resp.status == 200){
+                resp.headers.each {
+                    log.debug "${it.name} : ${it.value}"
+                }
+                log.debug "response contentType: ${resp.contentType}"
+                log.debug "response data: ${resp.data}"
+                log.debug "settings: ${settings}"
+                
+
+                def price = Double.parseDouble(resp.data[0].price)
+                
+                if (price > settings.highprice){
+                	log.debug("using high price")
+                    
+                    if (highswitch) highswitch.on()
+                    if (normalswitch) normalswitch.off()
+                    if (negativeswitch) negativeswitch.off()
+                    
+                }else if (price < 0) {
+                	log.debug("using negative price")
+                    if (highswitch) highswitch.off()
+                    if (normalswitch) normalswitch.off()
+                    if (negativeswitch) negativeswitch.on()
+                
+                } else{
+                	log.debug("using normal price")
+                    if (highswitch) highswitch.off()
+                    if (normalswitch) normalswitch.on()
+                    if (negativeswitch) negativeswitch.off()
+                    
+                }
+    		}else{
+            	log.warning "unexpected response from comed (${resp.status}): ${resp.data}"
+        	}
         }
     } catch (e) {
         log.error "something went wrong: $e"
@@ -92,5 +120,3 @@ def priceUpdated(data) {
 
 }
 
-
-// TODO: implement event handlers
